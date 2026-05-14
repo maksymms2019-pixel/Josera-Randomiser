@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Josera — Розіграш</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --red: #D7282F; --red-dark: #9e1b20;
+  --gold: #F5A623;
+  --bg: #0d0d0d; --surface: #181818; --surface2: #222;
+  --border: #2e2e2e; --text: #f0f0f0; --muted: #888;
+}
+body { font-family: 'Manrope', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-tap-highlight-color: transparent; }
+header { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); background:#111; position:sticky; top:0; z-index:50; }
+.logo { font-family:'Unbounded',sans-serif; font-size:18px; font-weight:900; }
+.logo em { color:var(--red); font-style:normal; }
+
+.view { display:none; }
+.view.active { display:block; }
+#view-spin.active { display:flex; }
+
+/* ===== SETUP ===== */
+#view-setup { padding-bottom:40px; }
+.step-block { background:var(--surface); border-radius:16px; margin:16px; overflow:hidden; }
+.step-header { display:flex; align-items:center; gap:12px; padding:18px 20px 14px; }
+.step-num { width:32px; height:32px; border-radius:8px; background:var(--red); display:flex; align-items:center; justify-content:center; font-family:'Unbounded',sans-serif; font-size:14px; font-weight:900; flex-shrink:0; }
+.step-title { font-family:'Unbounded',sans-serif; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+.step-body { padding:0 20px 20px; }
+
+.file-zone { border:2px dashed var(--red); border-radius:12px; padding:28px 20px; text-align:center; cursor:pointer; position:relative; transition:background .2s; background:rgba(215,40,47,.04); }
+.file-zone:hover { background:rgba(215,40,47,.09); }
+.file-zone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+.file-zone .fz-icon { font-size:36px; margin-bottom:8px; }
+.file-zone strong { display:block; font-size:15px; font-weight:700; margin-bottom:4px; }
+.file-zone span { font-size:12px; color:var(--muted); }
+
+.file-success { display:none; align-items:center; gap:8px; background:rgba(39,174,96,.1); border:1px solid #27ae60; border-radius:10px; padding:12px 16px; font-size:14px; font-weight:600; color:#2ecc71; margin-top:10px; }
+.file-success.show { display:flex; }
+
+.col-picker { margin-top:16px; }
+.col-picker-label { font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+.col-chips { display:flex; flex-wrap:wrap; gap:8px; }
+.col-chip { padding:7px 13px; border-radius:20px; border:1px solid var(--border); background:var(--surface2); font-size:13px; cursor:pointer; transition:all .15s; white-space:nowrap; }
+.col-chip.active-nick { border-color:var(--red); background:rgba(215,40,47,.15); color:var(--red); font-weight:700; }
+.col-chip.active-phone { border-color:var(--gold); background:rgba(245,166,35,.15); color:var(--gold); font-weight:700; }
+
+.logic-hint { margin-top:12px; padding:12px 14px; border-left:3px solid var(--gold); background:rgba(245,166,35,.07); border-radius:0 8px 8px 0; font-size:13px; line-height:1.6; color:#ccc; }
+.logic-hint strong { color:var(--gold); }
+
+.or-divider { display:flex; align-items:center; gap:12px; color:var(--muted); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin:18px 0; }
+.or-divider::before,.or-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+.manual-box { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:14px; font-family:'Manrope',sans-serif; font-size:14px; color:var(--text); width:100%; resize:none; min-height:100px; line-height:1.7; outline:none; transition:border-color .2s; }
+.manual-box:focus { border-color:var(--red); }
+.manual-box::placeholder { color:#444; }
+
+.count-preview { display:none; flex-direction:row; align-items:center; gap:14px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-top:12px; }
+.count-preview.show { display:flex; }
+.count-big { font-family:'Unbounded',sans-serif; font-size:32px; font-weight:900; color:var(--gold); }
+.count-label { font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:2px; }
+.count-preview-names { font-size:12px; color:var(--muted); flex:1; }
+
+.field { margin-bottom:16px; }
+.field-label { font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:8px; }
+.field input,.field select { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'Manrope',sans-serif; font-size:15px; font-weight:500; padding:13px 14px; outline:none; -webkit-appearance:none; transition:border-color .2s; }
+.field input:focus,.field select:focus { border-color:var(--red); }
+.field select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:36px; }
+.field select option { background:#222; }
+
+.prize-rows { display:flex; flex-direction:column; gap:8px; }
+.prize-row { display:flex; align-items:center; gap:10px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; }
+.prize-row-num { font-size:12px; color:var(--red); font-weight:700; min-width:28px; }
+.prize-row input { flex:1; background:transparent; border:none; color:var(--text); font-family:'Manrope',sans-serif; font-size:14px; outline:none; }
+.prize-row input::placeholder { color:#444; }
+
+.launch-btn { display:flex; align-items:center; justify-content:center; gap:10px; width:calc(100% - 32px); margin:0 16px 16px; padding:20px; background:var(--red); border:none; border-radius:14px; font-family:'Unbounded',sans-serif; font-size:16px; font-weight:900; color:#fff; cursor:pointer; letter-spacing:.5px; transition:all .2s; }
+.launch-btn:hover:not(:disabled) { background:var(--red-dark); }
+.launch-btn:disabled { opacity:.35; cursor:not-allowed; }
+
+/* ===== SPIN ===== */
+#view-spin { flex-direction:column; min-height:100vh; }
+.spin-header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border); background:#111; }
+.spin-logo { font-family:'Unbounded',sans-serif; font-size:14px; font-weight:900; color:var(--red); }
+.spin-progress { font-size:13px; color:var(--muted); }
+.spin-progress strong { color:var(--text); }
+
+.spin-main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 0; gap:24px; }
+
+.slot-outer { width:100%; position:relative; }
+.slot-pointer { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:10; pointer-events:none; display:flex; flex-direction:column; align-items:center; }
+.tri-up { width:0; height:0; border-left:14px solid transparent; border-right:14px solid transparent; border-top:22px solid var(--red); filter:drop-shadow(0 0 10px rgba(215,40,47,.8)); }
+.tri-dn { width:0; height:0; border-left:14px solid transparent; border-right:14px solid transparent; border-bottom:22px solid var(--red); filter:drop-shadow(0 0 10px rgba(215,40,47,.8)); }
+
+.slot-frame { overflow:hidden; height:82px; position:relative; }
+.slot-frame::before,.slot-frame::after { content:''; position:absolute; top:0; bottom:0; width:80px; z-index:5; pointer-events:none; }
+.slot-frame::before { left:0; background:linear-gradient(to right,var(--bg),transparent); }
+.slot-frame::after { right:0; background:linear-gradient(to left,var(--bg),transparent); }
+
+.slot-track { display:flex; align-items:center; gap:8px; padding:0 8px; will-change:transform; }
+
+.slot-item { flex-shrink:0; width:160px; height:70px; border-radius:12px; border:2px solid var(--border); background:var(--surface); display:flex; align-items:center; justify-content:center; font-family:'Unbounded',sans-serif; font-size:12px; font-weight:700; color:var(--text); text-align:center; padding:8px 10px; word-break:break-all; line-height:1.3; }
+.slot-item.hl { border-color:var(--red); background:rgba(215,40,47,.18); color:#fff; box-shadow:0 0 24px rgba(215,40,47,.5); }
+
+.winner-reveal { text-align:center; padding:0 24px; opacity:0; transform:translateY(16px); transition:all .4s ease; }
+.winner-reveal.show { opacity:1; transform:translateY(0); }
+.wr-label { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.wr-trophy { font-size:44px; margin-bottom:10px; }
+.wr-name { font-family:'Unbounded',sans-serif; font-size:clamp(20px,6vw,34px); font-weight:900; color:var(--gold); margin-bottom:6px; line-height:1.2; }
+.wr-phone { font-size:14px; color:var(--muted); margin-bottom:8px; }
+.wr-prize-tag { display:inline-block; background:rgba(245,166,35,.15); border:1px solid rgba(245,166,35,.3); border-radius:20px; padding:5px 16px; font-size:13px; color:var(--gold); font-weight:600; }
+
+.spin-actions { display:flex; flex-direction:column; gap:10px; padding:0 20px 24px; width:100%; max-width:460px; margin:0 auto; }
+.btn-next { display:none; padding:18px; background:var(--red); border:none; border-radius:12px; font-family:'Unbounded',sans-serif; font-size:14px; font-weight:900; color:#fff; cursor:pointer; transition:background .2s; }
+.btn-next.show { display:block; }
+.btn-next:hover { background:var(--red-dark); }
+.btn-finish { display:none; padding:16px; background:transparent; border:1px solid var(--border); border-radius:12px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .2s; }
+.btn-finish.show { display:block; }
+.btn-finish:hover { border-color:#555; color:var(--text); }
+
+/* ===== RESULTS ===== */
+#view-results { padding-bottom:40px; }
+.results-block { background:var(--surface); border-radius:16px; margin:16px; overflow:hidden; }
+.results-header { display:flex; align-items:center; gap:12px; padding:18px 20px; border-bottom:1px solid var(--border); }
+.results-title { font-family:'Unbounded',sans-serif; font-size:13px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+.winner-row { display:flex; align-items:center; gap:14px; padding:14px 20px; border-bottom:1px solid var(--border); animation:slideIn .3s ease; }
+.winner-row:last-child { border-bottom:none; }
+@keyframes slideIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+.wr-rank { font-size:13px; color:var(--red); font-weight:800; min-width:28px; }
+.wr-info { flex:1; min-width:0; }
+.wr-info-name { font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wr-info-phone { font-size:12px; color:var(--muted); margin-top:2px; }
+.wr-prize-small { background:rgba(245,166,35,.15); border:1px solid rgba(245,166,35,.3); border-radius:6px; padding:4px 10px; font-size:11px; color:var(--gold); font-weight:600; max-width:110px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.results-actions { padding:0 16px; display:flex; flex-direction:column; gap:10px; }
+.btn-copy { display:flex; align-items:center; justify-content:center; gap:8px; padding:17px; background:var(--red); border:none; border-radius:12px; font-family:'Unbounded',sans-serif; font-size:13px; font-weight:900; color:#fff; cursor:pointer; transition:background .2s; }
+.btn-copy:hover { background:var(--red-dark); }
+.btn-copy.copied { background:#27ae60; }
+.btn-new { display:flex; align-items:center; justify-content:center; gap:8px; padding:15px; background:transparent; border:1px solid var(--border); border-radius:12px; font-family:'Manrope',sans-serif; font-size:14px; font-weight:600; color:var(--muted); cursor:pointer; transition:all .2s; }
+.btn-new:hover { border-color:#555; color:var(--text); }
+
+#confetti-canvas { position:fixed; inset:0; pointer-events:none; z-index:999; }
+</style>
+</head>
+<body>
+<canvas id="confetti-canvas"></canvas>
+
+<!-- ===== SETUP ===== -->
+<div id="view-setup" class="view active">
+  <header><div class="logo">JOSERA<em>.</em>UA</div></header>
+
+  <div class="step-block">
+    <div class="step-header"><div class="step-num">1</div><div class="step-title">Завантаження учасників</div></div>
+    <div class="step-body">
+      <div class="file-zone" id="drop-zone">
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+        <div class="fz-icon">📁</div>
+        <strong>Завантажити таблицю</strong>
+        <span>CSV / XLSX / XLS — перший рядок це заголовки</span>
+      </div>
+      <div class="file-success" id="file-success"><span>✅</span><span id="file-name-display"></span></div>
+
+      <div id="col-pickers" style="display:none">
+        <div class="col-picker">
+          <div class="col-picker-label">📌 Нікнейм / Username</div>
+          <div class="col-chips" id="chips-nick"></div>
+        </div>
+        <div class="col-picker" style="margin-top:14px">
+          <div class="col-picker-label">📞 Номер телефону</div>
+          <div class="col-chips" id="chips-phone"></div>
+        </div>
+        <div class="logic-hint">
+          💡 <strong>Логіка:</strong> якщо нікнейм є — показується нікнейм.<br>
+          Якщо порожній — береться <strong>номер телефону</strong>.
+        </div>
+      </div>
+
+      <div class="or-divider">або введіть вручну</div>
+      <textarea class="manual-box" id="manual-input" placeholder="По одному запису на рядок:&#10;@mak7_CT&#10;@dimazabalka&#10;+380674194286"></textarea>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Кожен рядок = один учасник</div>
+
+      <div class="count-preview" id="count-preview">
+        <div><div class="count-big" id="count-big">0</div><div class="count-label">учасників</div></div>
+        <div class="count-preview-names" id="count-names"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step-block">
+    <div class="step-header"><div class="step-num">2</div><div class="step-title">Налаштування</div></div>
+    <div class="step-body">
+      <div class="field"><div class="field-label">Кількість переможців</div><input type="number" id="winner-count" value="1" min="1" max="200"></div>
+      <div class="field">
+        <div class="field-label">Швидкість рулетки</div>
+        <select id="spin-speed">
+          <option value="5000">Повільно 🐢</option>
+          <option value="2800" selected>Стандартно ⚡</option>
+          <option value="1500">Швидко 🔥</option>
+        </select>
+      </div>
+      <div class="field"><div class="field-label">Назва призу</div><input type="text" id="prize-name" placeholder="Josera корм 2кг"></div>
+      <div id="prize-rows-wrap" style="display:none">
+        <div class="field-label" style="margin-bottom:8px">Призи для кожного переможця</div>
+        <div class="prize-rows" id="prize-rows"></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="launch-btn" id="launch-btn" disabled onclick="startRaffle()">🎰 ЗАПУСТИТИ РОЗІГРАШ</button>
+</div>
+
+<!-- ===== SPIN ===== -->
+<div id="view-spin" class="view">
+  <div class="spin-header">
+    <div class="spin-logo">JOSERA</div>
+    <div class="spin-progress">Переможець <strong id="spin-cur">1</strong> / <strong id="spin-tot">1</strong></div>
+  </div>
+  <div class="spin-main">
+    <div class="slot-outer" style="max-width:460px;width:100%">
+      <div class="slot-pointer"><div class="tri-up"></div><div class="tri-dn"></div></div>
+      <div class="slot-frame"><div class="slot-track" id="slot-track"></div></div>
+    </div>
+    <div class="winner-reveal" id="winner-reveal">
+      <div class="wr-label">🏆 ПЕРЕМОЖЕЦЬ!</div>
+      <div class="wr-trophy">🏆</div>
+      <div class="wr-name" id="wr-name">—</div>
+      <div class="wr-phone" id="wr-phone"></div>
+      <div class="wr-prize-tag" id="wr-prize" style="display:none"></div>
+    </div>
+  </div>
+  <div class="spin-actions">
+    <button class="btn-next" id="btn-next" onclick="nextWinner()"></button>
+    <button class="btn-finish" id="btn-finish" onclick="showResults()">✕ ЗАВЕРШИТИ</button>
+  </div>
+</div>
+
+<!-- ===== RESULTS ===== -->
+<div id="view-results" class="view">
+  <header><div class="logo">JOSERA<em>.</em>UA</div></header>
+  <div class="results-block">
+    <div class="results-header"><span style="font-size:20px">🏆</span><div class="results-title">Переможці розіграшу</div></div>
+    <div id="winners-list"></div>
+  </div>
+  <div class="results-actions">
+    <button class="btn-copy" id="btn-copy" onclick="copyResults()">📋 СКОПІЮВАТИ СПИСОК</button>
+    <button class="btn-new" onclick="newRaffle()">🔄 НОВИЙ РОЗІГРАШ</button>
+  </div>
+</div>
+
+<script>
+/* ===== STATE ===== */
+let allP = [], remaining = [], winners = [];
+let colNick = -1, colPhone = -1, sheetHeaders = [];
+let totalW = 1, round = 0, prizes = [], spinMs = 2800;
+let spinning = false;
+
+/* ===== FILE HANDLING ===== */
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background='rgba(215,40,47,.1)'; });
+dz.addEventListener('dragleave', () => { dz.style.background=''; });
+dz.addEventListener('drop', e => { e.preventDefault(); dz.style.background=''; if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+function handleFile(file) {
+  const name = file.name.toLowerCase();
+  const reader = new FileReader();
+
+  if (name.endsWith('.csv')) {
+    reader.onload = ev => parseCSVText(ev.target.result, file.name);
+    reader.readAsText(file, 'UTF-8');
+  } else {
+    // XLSX / XLS — read as ArrayBuffer, use SheetJS
+    reader.onload = ev => parseXLSX(ev.target.result, file.name);
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+/* ===== XLSX via SheetJS ===== */
+function parseXLSX(buffer, filename) {
+  try {
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    // Get as array of arrays (raw values)
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    if (data.length < 2) { alert('Таблиця порожня'); return; }
+
+    // Row 0 = headers
+    const hdrs = data[0].map((h, i) => (String(h || '')).trim() || `Col ${i+1}`);
+    const rows = data.slice(1);
+
+    loadTable(hdrs, rows, filename);
+  } catch(e) {
+    alert('Помилка читання файлу: ' + e.message);
+  }
+}
+
+/* ===== CSV plain text ===== */
+function parseCSVText(text, filename) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) { alert('Файл порожній'); return; }
+  const hdrs = csvSplit(lines[0]).map((h,i) => h.trim() || `Col ${i+1}`);
+  const rows = lines.slice(1).map(l => csvSplit(l));
+  loadTable(hdrs, rows, filename);
+}
+
+function csvSplit(line) {
+  const r=[]; let cur='', q=false;
+  for(const c of line){
+    if(c==='"'){q=!q;continue;}
+    if(c===','&&!q){r.push(cur.trim());cur='';continue;}
+    cur+=c;
+  }
+  r.push(cur.trim()); return r;
+}
+
+/* ===== LOAD TABLE (common) ===== */
+function loadTable(hdrs, rows, filename) {
+  sheetHeaders = hdrs;
+
+  // Auto-detect columns
+  colNick  = hdrs.findIndex(h => /нікне|ніkн|nick|user|логін|login|username/i.test(h));
+  colPhone = hdrs.findIndex(h => /телеф|phone|номер/i.test(h));
+  if (colNick < 0)  colNick  = 0;                           // fallback: col A
+  if (colPhone < 0) colPhone = hdrs.length > 4 ? 4 : -1;   // fallback: col E
+
+  // Store rows
+  window._sheetRows = rows;
+
+  // UI
+  renderChips(hdrs);
+  document.getElementById('col-pickers').style.display = 'block';
+  document.getElementById('file-success').classList.add('show');
+  document.getElementById('file-name-display').textContent = filename;
+  refreshChipUI('nick');
+  refreshChipUI('phone');
+  rebuildFromSheet();
+}
+
+function rebuildFromSheet() {
+  if (!window._sheetRows) return;
+  const r = [];
+  window._sheetRows.forEach((cols, i) => {
+    const nick  = colNick  >= 0 ? String(cols[colNick]  || '').trim() : '';
+    const phone = colPhone >= 0 ? String(cols[colPhone] || '').trim() : '';
+    if (!nick && !phone) return;
+    r.push({ display: nick || phone || `Учасник ${i+1}`, phone });
+  });
+  setP(r);
+}
+
+/* ===== CHIPS ===== */
+function renderChips(hdrs) {
+  ['nick','phone'].forEach(type => {
+    const c = document.getElementById(`chips-${type}`);
+    c.innerHTML = '';
+    const none = document.createElement('div');
+    none.className='col-chip'; none.textContent='—'; none.dataset.idx='-1';
+    none.onclick=()=>{ if(type==='nick')colNick=-1;else colPhone=-1; refreshChipUI(type); rebuildFromSheet(); };
+    c.appendChild(none);
+    hdrs.forEach((h,i)=>{
+      const chip=document.createElement('div');
+      chip.className='col-chip'; chip.textContent=h; chip.dataset.idx=i;
+      chip.onclick=()=>{ if(type==='nick')colNick=i;else colPhone=i; refreshChipUI(type); rebuildFromSheet(); };
+      c.appendChild(chip);
+    });
+  });
+}
+
+function refreshChipUI(type) {
+  const idx = type==='nick'?colNick:colPhone;
+  document.getElementById(`chips-${type}`).querySelectorAll('.col-chip').forEach(c=>{
+    c.classList.remove(`active-${type}`);
+    if(parseInt(c.dataset.idx)===idx) c.classList.add(`active-${type}`);
+  });
+}
+
+/* ===== MANUAL INPUT ===== */
+document.getElementById('manual-input').addEventListener('input', function(){
+  if(window._sheetRows) return; // file takes priority
+  const lines = this.value.split('\n').map(l=>l.trim()).filter(Boolean);
+  setP(lines.map((l,i)=>{
+    const parts=l.split(',');
+    const nick=parts[0].trim(), phone=(parts[1]||'').trim();
+    return { display: nick||phone||`Учасник ${i+1}`, phone };
+  }));
+});
+
+/* ===== PARTICIPANTS ===== */
+function setP(list) {
+  allP=list; remaining=[...list];
+  const n=allP.length;
+  const prev=document.getElementById('count-preview');
+  if(n>0){
+    prev.classList.add('show');
+    document.getElementById('count-big').textContent=n;
+    document.getElementById('count-names').textContent=allP.slice(0,5).map(p=>p.display).join(', ')+(n>5?'...':'');
+  } else prev.classList.remove('show');
+  document.getElementById('launch-btn').disabled=n===0;
+}
+
+/* ===== PRIZE ROWS ===== */
+document.getElementById('winner-count').addEventListener('input', updatePrizeRows);
+document.getElementById('prize-name').addEventListener('input', updatePrizeRows);
+function updatePrizeRows(){
+  const count=parseInt(document.getElementById('winner-count').value)||1;
+  const wrap=document.getElementById('prize-rows-wrap');
+  if(count<=1){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  const def=document.getElementById('prize-name').value;
+  const existing=[...document.getElementById('prize-rows').querySelectorAll('input')].map(i=>i.value);
+  document.getElementById('prize-rows').innerHTML='';
+  for(let i=0;i<count;i++){
+    const d=document.createElement('div'); d.className='prize-row';
+    d.innerHTML=`<span class="prize-row-num">#${i+1}</span><input type="text" placeholder="Приз ${i+1}" value="${existing[i]??def}">`;
+    document.getElementById('prize-rows').appendChild(d);
+  }
+}
+
+/* ===== START ===== */
+function startRaffle(){
+  totalW=Math.min(parseInt(document.getElementById('winner-count').value)||1, allP.length);
+  spinMs=parseInt(document.getElementById('spin-speed').value);
+  remaining=[...allP]; winners=[]; round=0;
+  const cnt=parseInt(document.getElementById('winner-count').value)||1;
+  prizes = cnt>1
+    ? [...document.getElementById('prize-rows').querySelectorAll('input')].map(i=>i.value)
+    : [document.getElementById('prize-name').value||''];
+  document.getElementById('spin-tot').textContent=totalW;
+  showView('spin');
+  doSpin();
+}
+
+/* ===== SLOT SPIN ===== */
+const ITEM_W = 168;
+const TOTAL_ITEMS = 44;
+const CENTER_IDX = 22;
+
+function doSpin(){
+  if(remaining.length===0){showResults();return;}
+  round++;
+  spinning=true;
+  document.getElementById('spin-cur').textContent=round;
+  document.getElementById('winner-reveal').classList.remove('show');
+  document.getElementById('btn-next').classList.remove('show');
+  document.getElementById('btn-finish').classList.remove('show');
+
+  const wi=Math.floor(Math.random()*remaining.length);
+  const winner=remaining[wi];
+
+  // build slot items
+  const pool=shuffled([...remaining]);
+  const items=[];
+  for(let i=0;i<TOTAL_ITEMS;i++) items.push(pool[i%pool.length]);
+  items[CENTER_IDX]=winner;
+
+  const track=document.getElementById('slot-track');
+  track.innerHTML='';
+  const els=[];
+  items.forEach(p=>{
+    const el=document.createElement('div');
+    el.className='slot-item';
+    el.textContent=p.display;
+    track.appendChild(el); els.push(el);
+  });
+
+  const frame=track.parentElement;
+  const fw=frame.offsetWidth;
+  const centerOffset=fw/2-ITEM_W/2;
+  const startX=centerOffset;
+  const endX=centerOffset-CENTER_IDX*ITEM_W;
+
+  track.style.transition='none';
+  track.style.transform=`translateX(${startX}px)`;
+
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    track.style.transition=`transform ${spinMs}ms cubic-bezier(0.08,0.65,0.2,1)`;
+    track.style.transform=`translateX(${endX}px)`;
+  }));
+
+  setTimeout(()=>{
+    els.forEach((el,i)=>el.classList.toggle('hl',i===CENTER_IDX));
+
+    remaining.splice(wi,1);
+    winners.push({...winner, prize:prizes[round-1]||''});
+
+    document.getElementById('wr-name').textContent=winner.display;
+    document.getElementById('wr-phone').textContent=winner.phone||'';
+    const pt=document.getElementById('wr-prize');
+    const p=prizes[round-1]||'';
+    if(p){pt.textContent=p;pt.style.display='inline-block';}else pt.style.display='none';
+
+    setTimeout(()=>{
+      document.getElementById('winner-reveal').classList.add('show');
+      spinning=false;
+      fireConfetti();
+      const more=round<totalW&&remaining.length>0;
+      if(more){
+        const nb=document.getElementById('btn-next');
+        nb.textContent=`НАСТУПНИЙ (${round+1}/${totalW}) →`;
+        nb.classList.add('show');
+      }
+      document.getElementById('btn-finish').classList.add('show');
+    },350);
+  }, spinMs+80);
+}
+
+function nextWinner(){if(!spinning)doSpin();}
+
+function showResults(){
+  showView('results');
+  document.getElementById('winners-list').innerHTML=winners.map((w,i)=>`
+    <div class="winner-row">
+      <div class="wr-rank">#${i+1}</div>
+      <div class="wr-info">
+        <div class="wr-info-name">${w.display}</div>
+        ${w.phone?`<div class="wr-info-phone">${w.phone}</div>`:''}
+      </div>
+      ${w.prize?`<div class="wr-prize-small">${w.prize}</div>`:''}
+    </div>`).join('');
+}
+
+function copyResults(){
+  const btn=document.getElementById('btn-copy');
+  const text=winners.map((w,i)=>`#${i+1} ${w.display}${w.phone?' '+w.phone:''}${w.prize?' | '+w.prize:''}`).join('\n');
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='✅ СКОПІЙОВАНО!'; btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='📋 СКОПІЮВАТИ СПИСОК';btn.classList.remove('copied');},2000);
+  });
+}
+
+function newRaffle(){
+  allP=[]; remaining=[]; winners=[];
+  window._sheetRows=null; colNick=-1; colPhone=-1; sheetHeaders=[];
+  document.getElementById('manual-input').value='';
+  document.getElementById('count-preview').classList.remove('show');
+  document.getElementById('col-pickers').style.display='none';
+  document.getElementById('file-success').classList.remove('show');
+  document.getElementById('prize-rows-wrap').style.display='none';
+  document.getElementById('prize-name').value='';
+  document.getElementById('winner-count').value='1';
+  document.getElementById('file-input').value='';
+  document.getElementById('launch-btn').disabled=true;
+  showView('setup');
+}
+
+function showView(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(`view-${id}`).classList.add('active');
+}
+
+function shuffled(arr){
+  for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  return arr;
+}
+
+/* ===== CONFETTI ===== */
+const cc=document.getElementById('confetti-canvas');
+const cx=cc.getContext('2d');
+let pieces=[];
+function fireConfetti(){
+  cc.width=innerWidth; cc.height=innerHeight; pieces=[];
+  const cols=['#D7282F','#F5A623','#fff','#FFD700','#ff6b6b','#ffd60a','#ff9f43'];
+  for(let i=0;i<150;i++) pieces.push({
+    x:Math.random()*cc.width, y:-10-Math.random()*80,
+    w:5+Math.random()*9, h:7+Math.random()*6,
+    color:cols[Math.floor(Math.random()*cols.length)],
+    vx:(Math.random()-.5)*4, vy:2.5+Math.random()*4,
+    rot:Math.random()*360, rv:(Math.random()-.5)*9, op:1
+  });
+  drawConf();
+}
+function drawConf(){
+  cx.clearRect(0,0,cc.width,cc.height);
+  pieces.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.rot+=p.rv;
+    if(p.y>cc.height*.65) p.op-=.025;
+    cx.save(); cx.globalAlpha=Math.max(0,p.op);
+    cx.translate(p.x+p.w/2,p.y+p.h/2); cx.rotate(p.rot*Math.PI/180);
+    cx.fillStyle=p.color; cx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+    cx.restore();
+  });
+  pieces=pieces.filter(p=>p.op>0);
+  if(pieces.length>0) requestAnimationFrame(drawConf);
+  else cx.clearRect(0,0,cc.width,cc.height);
+}
+</script>
+</body>
+</html>
